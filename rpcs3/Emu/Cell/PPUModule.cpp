@@ -808,6 +808,45 @@ static auto ppu_load_exports(const ppu_module<lv2_obj>& _module, ppu_linkage_inf
 			if (::at32(*loaded_flags, unload_index))
 			{
 				ppu_register_library_lock(module_name, false);
+
+				auto& mlink = link->modules[module_name];
+
+				// Reset exported functions
+				for (u32 i = 0, end = lib.num_func; i < end; i++)
+				{
+					const u32 fnid = _module.get_ref<u32>(lib.nids, i);
+					auto it = mlink.functions.find(fnid);
+					if (it != mlink.functions.end())
+					{
+						if (it->second.static_func)
+						{
+							it->second.export_addr = g_fxo->get<ppu_function_manager>().func_addr(it->second.static_func->index);
+						}
+						else
+						{
+							it->second.export_addr = 0;
+						}
+					}
+				}
+
+				// Reset exported variables
+				const auto vnids = lib.nids + lib.num_func;
+				for (u32 i = 0, end = lib.num_var; i < end; i++)
+				{
+					const u32 vnid = _module.get_ref<u32>(vnids, i);
+					auto it = mlink.variables.find(vnid);
+					if (it != mlink.variables.end())
+					{
+						if (it->second.static_var)
+						{
+							it->second.export_addr = it->second.static_var->addr;
+						}
+						else
+						{
+							it->second.export_addr = 0;
+						}
+					}
+				}
 			}
 
 			continue;

@@ -1401,6 +1401,21 @@ error_code cellPamfReaderGetEpIteratorWithTimeStamp(vm::ptr<CellPamfReader> pSel
 
 	if (ep_num == 0)
 	{
+		const u64 requested_time_stamp = std::bit_cast<be_t<u64>>(*pTimeStamp);
+		u64 start_pts = 0;
+		if (pSelf->isPsmf)
+			start_pts = (static_cast<u64>(pSelf->psmf.sequenceInfo->start_pts_high) << 32) | pSelf->psmf.sequenceInfo->start_pts_low;
+		else
+			start_pts = (static_cast<u64>(pSelf->pamf.sequenceInfo->start_pts_high) << 32) | pSelf->pamf.sequenceInfo->start_pts_low;
+
+		if (requested_time_stamp <= start_pts || requested_time_stamp == 0)
+		{
+			cellPamf.warning("cellPamfReaderGetEpIteratorWithTimeStamp: ep_num == 0, falling back to stream start for initial playback");
+			pIt->pCur = vm::null;
+			pIt->index = 0;
+			return CELL_OK;
+		}
+
 		return CELL_PAMF_ERROR_EP_NOT_FOUND;
 	}
 
@@ -1453,6 +1468,16 @@ error_code cellPamfEpIteratorGetEp(vm::ptr<CellPamfEpIterator> pIt, vm::ptr<Cell
 
 	ensure(!!pIt); // Not checked on LLE
 
+	if (!pIt->pCur)
+	{
+		pEp->indexN = 1;
+		pEp->nThRefPictureOffset = 0x800;
+		pEp->pts.upper = 0;
+		pEp->pts.lower = 0;
+		pEp->rpnOffset = 0;
+		return CELL_OK;
+	}
+
 	if (pIt->isPamf)
 	{
 		pamfEpUnpack(vm::static_ptr_cast<const PamfEpHeader>(pIt->pCur), pEp);
@@ -1470,6 +1495,15 @@ s32 cellPamfEpIteratorMove(vm::ptr<CellPamfEpIterator> pIt, s32 steps, vm::ptr<C
 	cellPamf.notice("cellPamfEpIteratorMove(pIt=*0x%x, steps=%d, pEp=*0x%x)", pIt, steps, pEp);
 
 	ensure(!!pIt); // Not checked on LLE
+
+	if (!pIt->pCur || pIt->num == 0)
+	{
+		if (pEp)
+		{
+			cellPamfEpIteratorGetEp(pIt, pEp);
+		}
+		return 0;
+	}
 
 	u32 new_index = pIt->index + steps;
 

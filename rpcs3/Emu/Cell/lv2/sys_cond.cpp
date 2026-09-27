@@ -411,11 +411,11 @@ error_code sys_cond_signal_to(ppu_thread& ppu, u32 cond_id, u32 thread_id)
 
 		if (!cond.ret)
 		{
-			if (has_lower_prio_or_is_the_mutex_owner && get_system_time() - start_time < 50)
+			if (get_system_time() - start_time < 2000)
 			{
 				// RPCS3 is not cycle accurate
 				// Threads with higher (lower) priority get timing benefits that we cannot provide accurately
-				// Give the thread another chance
+				// Give the thread another chance (allow up to 2ms for target thread to enter sys_cond_wait)
 				busy_wait(5000);
 				continue;
 			}
